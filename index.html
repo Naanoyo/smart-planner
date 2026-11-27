@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>컨디션 플래너</title>
+<style>
+:root{--bg:#e9eef4;--card:#fff;--ink:#17233b;--sub:#5d6b82;--line:#d5dde8;--accent:#2f5bea;--ok:#1f9d6b;--warn:#d9822b;--bad:#d64550}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.5}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 16px 60px}
+header h1{font-size:1.7rem;margin:0}
+header p{margin:4px 0 20px;color:var(--sub)}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:14px;padding:18px;border:1px solid var(--line);margin-bottom:16px}
+.card h2{font-size:1.05rem;margin:0 0 12px}
+/* 배터리 게이지 */
+.battery{display:flex;align-items:center;gap:6px}
+.shell{flex:1;height:44px;border:3px solid var(--ink);border-radius:10px;padding:3px;position:relative}
+.fill{height:100%;border-radius:5px;transition:width .35s,background .35s}
+.tip{width:7px;height:18px;background:var(--ink);border-radius:0 3px 3px 0}
+.pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.05rem}
+input[type=range]{width:100%;margin:14px 0 4px;accent-color:var(--accent)}
+.mood{color:var(--sub);font-size:.9rem;min-height:1.4em}
+label{display:block;font-size:.85rem;color:var(--sub);margin:10px 0 4px}
+input[type=text],input[type=number],select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:8px 12px;background:var(--accent);color:#fff;font-weight:600}
+button:hover{filter:brightness(1.1)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #9db4ff;outline-offset:2px}
+button.ghost{background:#eef1f7;color:var(--ink)}
+button.danger{background:#fbe9ea;color:var(--bad)}
+button.full{width:100%;margin-top:14px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btns button{flex:1}
+/* 과제 카드 */
+.task{display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px}
+.task.over{background:#fff7ef;border-color:#f0cfa8}
+.rank{width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700}
+.task.over .rank{background:var(--warn)}
+.name{font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.chip{font-size:.78rem;background:#eef1f7;border-radius:20px;padding:2px 9px;color:var(--sub)}
+.chip.hot{background:#fde7e8;color:var(--bad)}
+.chip.cost{background:#e4ecff;color:var(--accent)}
+.why{font-size:.76rem;color:var(--sub);margin-top:4px}
+.side{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.done-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}
+.empty{color:var(--sub);padding:14px 0}
+details{font-size:.88rem;color:var(--sub)}
+details summary{cursor:pointer;color:var(--ink);font-weight:700}
+details code{background:#eef1f7;padding:1px 5px;border-radius:4px;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>컨디션 플래너</h1>
+    <p>오늘의 에너지에 맞춰 할 일 순서를 알려주고, 내 피드백으로 계속 똑똑해져요. <span id="dayLabel"></span></p>
+  </header>
+
+  <div class="grid">
+    <aside>
+      <div class="card">
+        <h2>오늘의 컨디션 배터리</h2>
+        <div class="battery">
+          <div class="shell"><div class="fill" id="fill"></div><div class="pct" id="pct"></div></div>
+          <div class="tip"></div>
+        </div>
+        <input type="range" id="energy" min="1" max="100" value="70" aria-label="컨디션 점수 1에서 100">
+        <div class="mood" id="mood"></div>
+      </div>
+
+      <div class="card">
+        <h2>과제 추가</h2>
+        <label for="tName">할 일 이름</label>
+        <input type="text" id="tName" maxlength="30" placeholder="예: 수학 문제집 20쪽">
+        <div class="row">
+          <div><label for="tImp">중요도(1~5)</label><select id="tImp"></select></div>
+          <div><label for="tDiff">난이도(1~5)</label><select id="tDiff"></select></div>
+          <div><label for="tDay">D-day</label><input type="number" id="tDay" min="-30" max="365" value="3"></div>
+        </div>
+        <button class="full" id="addBtn">과제 추가</button>
+      </div>
+
+      <div class="card">
+        <h2>하루 관리</h2>
+        <div class="btns">
+          <button class="ghost" id="nextBtn">다음 날 시작</button>
+          <button class="danger" id="resetBtn">전체 초기화</button>
+        </div>
+        <p class="mood">다음 날 시작은 배터리와 완료 상태만 초기화하고, 학습된 난이도 가중치는 그대로 유지해요.</p>
+      </div>
+    </aside>
+
+    <main>
+      <div class="card">
+        <h2>오늘의 추천 순서</h2>
+        <div id="list"></div>
+      </div>
+      <div class="card">
+        <h2>완료한 과제와 피드백</h2>
+        <div id="doneList"></div>
+      </div>
+      <div class="card">
+        <details>
+          <summary>이 플래너는 어떻게 순서를 정할까요?</summary>
+          <p><b>예상 소모 에너지</b> = <code>난이도 × 5 × 난이도 가중치</code></p>
+          <p><b>점수</b> = <code>가치 + 컨디션 보정 − 무리 페널티</code>. 점수가 높을수록 지금 하기 좋은 과제예요.</p>
+          <p>가치는 중요도와 마감 임박도를 합친 값이고, 컨디션이 높으면 어려운 과제에, 낮으면 쉬운 과제에 가산점을 줘요. 남은 에너지보다 큰 과제는 크게 감점돼요.</p>
+          <p>완료 후 <b>쉬웠음</b>을 누르면 그 과제의 가중치가 0.1 줄고, <b>어려웠음</b>을 누르면 0.1 늘어요(범위 0.5~1.5).</p>
+        </details>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   컨디션 플래너 - 순수 JavaScript로 만든 "작은 AI"
+   ---------------------------------------------------------------------
+   이 프로그램에는 외부 AI API가 없어요. 대신 AI의 핵심 원리 3가지를 직접 구현했어요.
+   (1) 가중치 기반 의사결정 : 여러 요소를 점수로 바꿔 합산하고, 점수 순으로 정렬해요.
+   (2) 제약 조건 최적화     : "남은 에너지"라는 한정된 자원 안에서 가장 좋은 순서를 찾아요.
+   (3) 피드백 학습(보정)    : 사용자의 [쉬웠음]/[어려웠음] 평가로 가중치를 조금씩 고쳐요.
+   ===================================================================== */
+
+/* ---------- 0. 상수(알고리즘을 조절하는 손잡이, '하이퍼파라미터') ---------- */
+const COST_PER_DIFF = 5;   // 난이도 1점당 기본 소모 에너지
+const W_MIN = 0.5;         // 난이도 가중치 하한 (보정 범위 제한)
+const W_MAX = 1.5;         // 난이도 가중치 상한
+const LEARN_RATE = 0.1;    // 학습률: 피드백 1번에 가중치를 얼마나 움직일지
+const DEFAULT_ENERGY = 70; // 하루 시작 컨디션
+const KEY = "smartPlannerV1";
+
+/* ---------- 1. 상태(State) ---------- */
+// 샘플 과제. w(난이도 가중치)가 바로 '학습되는 값'이에요. 처음엔 모두 1.0
+function sampleTasks(){
+  return [
+    {id:1, name:"수학 수행평가 문제 풀이", imp:5, diff:5, dday:2, w:1, done:false, fb:null, spent:0},
+    {id:2, name:"영어 단어 50개 암기",     imp:3, diff:2, dday:1, w:1, done:false, fb:null, spent:0},
+    {id:3, name:"과학 실험 보고서 작성",   imp:4, diff:4, dday:5, w:1, done:false, fb:null, spent:0},
+    {id:4, name:"독서록 한 쪽 쓰기",       imp:2, diff:1, dday:7, w:1, done:false, fb:null, spent:0}
+  ];
+}
+let state = load() || freshState();
+function freshState(){ return {energy:DEFAULT_ENERGY, day:1, nextId:5, tasks:sampleTasks()}; }
+
+/* ---------- 2. localStorage 저장/불러오기 ---------- */
+// localStorage는 브라우저에 글자(문자열)로 저장되므로 JSON으로 바꿔서 넣고 꺼내요.
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+function load(){
+  try{ const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; }
+  catch(e){ return null; }   // 저장 데이터가 깨졌거나 막혀 있으면 새로 시작
+}
+
+/* ---------- 3. 핵심 알고리즘 ---------- */
+
+// (a) 예상 소모 에너지 = 난이도 × 기본값 × 학습된 가중치
+//     가중치 w가 1.2면 "내가 느끼기엔 20% 더 힘든 과제"라는 뜻이에요.
+function cost(t){ return Math.round(t.diff * COST_PER_DIFF * t.w); }
+
+// (b) 마감 임박도(urgency, 0~5): D-day가 가까울수록 커지고 멀수록 작아져요.
+//     D-0 → 5점, D-5 → 약 1.7점. 1/(1+0.4d) 는 "점점 완만하게 줄어드는" 감쇠 함수예요.
+//     마감이 지난 과제(음수)는 최대치 5점을 줘요.
+function urgency(t){ return t.dday <= 0 ? 5 : 5 / (1 + 0.4 * t.dday); }
+
+// (c) 최종 점수 계산 = 가중치 기반 의사결정의 심장
+//     점수 = 가치 + 컨디션 보정 - 무리 페널티
+function scoreOf(t, energy){
+  // 가치(value): 중요도와 마감 임박도의 가중합. 마감 임박도에 더 큰 가중치(3)를 줬어요.
+  const value = 2 * t.imp + 3 * urgency(t);
+
+  // 컨디션 보정(fit): mode는 -1(지침) ~ +1(쌩쌩). 50점이 중립이에요.
+  //  - 컨디션 높음(+): 어려운(=cost 큰) 과제에 가산점 → 집중력 좋을 때 어려운 걸 먼저
+  //  - 컨디션 낮음(-): 어려운 과제에 감점 → 지칠 땐 가벼운 과제부터
+  const mode = (energy - 50) / 50;
+  const fit = mode * (cost(t) / 30) * 8;
+
+  // 무리 페널티(overflow): 남은 에너지보다 큰 과제는 "제약 조건 위반".
+  //  초과분에 비례해 크게 깎아서 추천 순서 맨 뒤로 보내요. (패널티 방식의 제약 최적화)
+  const over = Math.max(0, cost(t) - energy);
+  const penalty = over * 0.6;
+
+  return {total: value + fit - penalty, value, fit, penalty, over};
+}
+
+// (d) 추천 목록: 아직 안 끝낸 과제만 점수를 매기고 높은 순으로 정렬(내림차순)
+function ranked(){
+  return state.tasks.filter(t => !t.done)
+    .map(t => ({t, s: scoreOf(t, state.energy)}))
+    .sort((a, b) => b.s.total - a.s.total);
+}
+
+/* ---------- 4. 사용자 행동 처리 ---------- */
+
+// 완료: 현재 가중치로 계산한 에너지를 배터리에서 차감
+// 차감 후 render()가 다시 점수를 계산하므로 추천 순서가 즉시 바뀌어요(실시간 재계산).
+function complete(id){
+  const t = state.tasks.find(x => x.id === id);
+  if(!t || t.done) return;
+  t.spent = cost(t);                              // 이번에 쓴 에너지를 기록
+  state.energy = Math.max(0, state.energy - t.spent);
+  t.done = true; t.fb = null;
+  commit();
+}
+
+// 피드백 학습: 경사하강법의 아주 작은 버전이에요.
+//   새 가중치 = 현재 가중치 + (방향 × 학습률), 단 [W_MIN, W_MAX] 밖으로는 못 나가요.
+//   '어려웠음'(+1) → 다음엔 더 힘든 과제로 계산, '쉬웠음'(-1) → 덜 힘든 과제로 계산
+//   범위를 제한(clamp)하는 이유: 한두 번의 극단적인 평가에 휘둘리지 않게 하려고요.
+function feedback(id, dir){
+  const t = state.tasks.find(x => x.id === id);
+  if(!t || !t.done || t.fb) return;               // 한 번 완료에 한 번만 반영
+  t.w = Math.min(W_MAX, Math.max(W_MIN, +(t.w + dir * LEARN_RATE).toFixed(2)));
+  t.fb = dir > 0 ? "hard" : "easy";
+  commit();
+}
+
+function addTask(){
+  const name = document.getElementById("tName").value.trim();
+  if(!name){ alert("할 일 이름을 입력해 주세요."); return; }
+  const dday = parseInt(document.getElementById("tDay").value, 10);
+  state.tasks.push({
+    id: state.nextId++, name,
+    imp: +document.getElementById("tImp").value,
+    diff: +document.getElementById("tDiff").value,
+    dday: isNaN(dday) ? 7 : dday, w: 1, done: false, fb: null, spent: 0
+  });
+  document.getElementById("tName").value = "";
+  commit();
+}
+
+function removeTask(id){ state.tasks = state.tasks.filter(t => t.id !== id); commit(); }
+
+// 다음 날 시작: 학습된 값(w)은 '기억'으로 남기고 하루 단위 값만 초기화
+//   - 배터리 → 기본값, 완료/피드백 상태 → 초기화
+//   - 모든 D-day를 1씩 줄여서 하루가 지난 효과를 줘요(마감이 다가오면 순위가 바뀜)
+//   - w는 건드리지 않아요 → 어제 학습한 내용이 오늘 추천에 반영돼요
+function nextDay(){
+  state.energy = DEFAULT_ENERGY;
+  state.day++;
+  state.tasks.forEach(t => { t.done = false; t.fb = null; t.spent = 0; t.dday -= 1; });
+  commit();
+}
+
+function resetAll(){
+  if(!confirm("학습된 가중치를 포함해 모든 데이터를 처음으로 되돌릴까요?")) return;
+  state = freshState();
+  commit();
+}
+
+// 상태 변경 후 항상 '저장 → 화면 갱신' 순서로 실행
+function commit(){ save(); render(); }
+
+/* ---------- 5. 화면 그리기 ---------- */
+// 사용자가 입력한 글자를 HTML에 넣기 전에 특수문자를 바꿔서 안전하게 만들어요.
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function ddayText(d){ return d === 0 ? "D-Day" : d > 0 ? "D-" + d : "D+" + (-d); }
+
+function render(){
+  const e = state.energy;
+
+  // 배터리: 0~100을 색상 각도(0=빨강, 120=초록)로 바꿔서 잔량에 따라 색이 변해요.
+  const fill = document.getElementById("fill");
+  fill.style.width = e + "%";
+  fill.style.background = "hsl(" + Math.round(e * 1.2) + ",65%,45%)";
+  document.getElementById("pct").textContent = e + "점";
+  document.getElementById("energy").value = Math.max(1, e);
+  document.getElementById("mood").textContent =
+    e >= 75 ? "컨디션 최고! 어려운 과제를 먼저 해 볼까요?" :
+    e >= 40 ? "무난한 컨디션이에요. 중요한 과제부터 차근차근 가요." :
+    e > 0   ? "많이 지쳤어요. 가벼운 과제만 하고 쉬어요." : "에너지가 0이에요. 오늘은 여기까지!";
+  document.getElementById("dayLabel").textContent = state.day + "일차";
+
+  // 추천 목록
+  const list = ranked();
+  document.getElementById("list").innerHTML = list.length ? list.map(({t, s}, i) => `
+    <div class="task ${s.over > 0 ? "over" : ""}">
+      <div class="rank">${i + 1}</div>
+      <div>
+        <div class="name">${esc(t.name)}</div>
+        <div class="chips">
+          <span class="chip">중요도 ${t.imp}</span>
+          <span class="chip">난이도 ${t.diff} (가중치 ×${t.w.toFixed(2)})</span>
+          <span class="chip ${t.dday <= 1 ? "hot" : ""}">${ddayText(t.dday)}</span>
+          <span class="chip cost">소모 ${cost(t)}</span>
+          ${s.over > 0 ? '<span class="chip hot">에너지 ' + s.over + ' 부족</span>' : ""}
+        </div>
+        <div class="why">점수 ${s.total.toFixed(1)} = 가치 ${s.value.toFixed(1)} + 컨디션 ${s.fit.toFixed(1)} − 무리 ${s.penalty.toFixed(1)}</div>
+      </div>
+      <div class="side">
+        <button onclick="complete(${t.id})">완료</button>
+        <button class="ghost" onclick="removeTask(${t.id})">삭제</button>
+      </div>
+    </div>`).join("") : '<div class="empty">남은 과제가 없어요. 과제를 추가하거나 다음 날을 시작해 보세요.</div>';
+
+  // 완료 목록 + 피드백 버튼
+  const dones = state.tasks.filter(t => t.done);
+  document.getElementById("doneList").innerHTML = dones.length ? dones.map(t => `
+    <div class="done-item">
+      <div><b>${esc(t.name)}</b><div class="why">에너지 ${t.spent} 사용 · 현재 난이도 가중치 ×${t.w.toFixed(2)}</div></div>
+      ${t.fb
+        ? '<span class="chip cost">' + (t.fb === "hard" ? "어려웠음 반영됨" : "쉬웠음 반영됨") + '</span>'
+        : `<div class="btns"><button class="ghost" onclick="feedback(${t.id},-1)">쉬웠음</button><button class="ghost" onclick="feedback(${t.id},1)">어려웠음</button></div>`}
+    </div>`).join("") : '<div class="empty">아직 완료한 과제가 없어요.</div>';
+}
+
+/* ---------- 6. 초기 설정 & 이벤트 연결 ---------- */
+["tImp", "tDiff"].forEach(id => {
+  document.getElementById(id).innerHTML = [1,2,3,4,5].map(n => `<option value="${n}" ${n === 3 ? "selected" : ""}>${n}</option>`).join("");
+});
+// 슬라이더를 직접 움직이면 '오늘 컨디션'을 새로 입력한 것으로 보고 즉시 재정렬
+document.getElementById("energy").addEventListener("input", ev => { state.energy = +ev.target.value; commit(); });
+document.getElementById("addBtn").addEventListener("click", addTask);
+document.getElementById("tName").addEventListener("keydown", ev => { if(ev.key === "Enter") addTask(); });
+document.getElementById("nextBtn").addEventListener("click", nextDay);
+document.getElementById("resetBtn").addEventListener("click", resetAll);
+render();
+</script>
+</body>
+</html>
